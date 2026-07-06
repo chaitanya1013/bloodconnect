@@ -4,6 +4,9 @@ AI-powered emergency blood donor matching platform built on the MERN stack.
  
 Unlike static donor directories, BloodConnect actively ranks and notifies the most suitable donors for each emergency request — combining distance, donation eligibility, blood-type compatibility, and donor response history into a transparent match score, with AI-generated explanations for why each donor was selected.
  
+**Live demo:** _[link will be added once deployed]_
+**Demo video:** _[link will be added once core flow is complete]_
+ 
 ---
  
 ## The problem
@@ -120,6 +123,32 @@ npm run dev
  
 *(Full route list will grow as each phase is implemented — see Roadmap below.)*
  
+---
+ 
+## Design decisions & trade-offs
+ 
+Honest reasoning behind the key choices — including where they'd break and what a production version would do differently.
+ 
+**MongoDB over SQL** — donor/request matching is fundamentally a geospatial query ("find eligible donors within N km"). MongoDB's `2dsphere` index and `$near` operator make this a native, simple query; the equivalent in SQL (PostGIS or manual haversine formulas) adds real complexity for no benefit at this scale.
+ 
+**Explainable weighted scoring over a black-box ML model (for now)** — the matching score is a transparent formula (distance + eligibility + response-rate, each weighted), not a trained model. This is a deliberate choice: in an emergency-matching system, being able to explain *why* a donor was or wasn't chosen matters more than squeezing out marginal accuracy from an opaque model. A trained model (e.g. gradient boosting on real response data) is a natural v2 once enough real usage data exists — training one now would mean fitting to synthetic/guessed data, which is worse than an honest, tunable formula.
+ 
+**JWT over session-based auth** — stateless tokens avoid needing a server-side session store, which matters if this is ever scaled across multiple server instances. Trade-off: revoking a token before it expires (e.g. on logout) isn't automatic with plain JWT — a production version would add a short-lived token + refresh token pattern, or a token blocklist.
+ 
+**Simulated donor response-rate data** — since there's no real historical usage yet, response-rate scoring is seeded with generated sample data for development/demo purposes. This is called out explicitly rather than hidden, since presenting simulated data as real would undermine the project's credibility in a review.
+ 
+**AI request-parsing has a manual fallback** — if the LLM fails to parse a natural-language request into structured fields (or produces something invalid), the system falls back to the manual structured form rather than silently proceeding with bad data. This reflects treating the AI layer as an assistive convenience, not a single point of failure.
+ 
+---
+ 
+## Metrics
+ 
+_To be filled in once the matching engine and a test dataset are in place:_
+ 
+- Average time to return ranked donor matches for a request (target: < 2s)
+- Number of donors correctly filtered by eligibility rules on seeded test data
+- Match explanation generation latency (AI API call time)
+- (Post-deployment) actual donor response rate vs. predicted response-rate score, as a sanity check on the scoring formula
 ---
  
 ## Roadmap
